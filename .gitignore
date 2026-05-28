@@ -1,0 +1,9 @@
+# Track only the five main project scripts for now.
+*
+!*/
+!.gitignore
+!1-standardZYYshp.py
+!2-standardZYYshpedit.py
+!3-export_by_xian.py
+!4-export_xmhx_by_xian.py
+!5-populate_template.py
