@@ -17,8 +17,8 @@ SCRIPT_DIR = r"C:\4code\3lot"
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 from project_config import (
-    GDB, ZYY_TARGET_FC_NAME, STANDARD_FILE, COUNTY_DBF,
-    PROJECT_114_PRJ, COUNTIES_114E as CONFIG_COUNTIES_114E,
+    GDB, ZYY_TARGET_FC_NAME, STANDARD_FILE, DEFAULT_ZONE,
+    county_zone, prj_path_for_zone,
 )
 
 reload(sys)
@@ -57,7 +57,6 @@ if not _arcpy_found:
 gdb = GDB
 target_fc = gdb + u"\\" + ZYY_TARGET_FC_NAME
 CHANGE_LOG_PATH = u"C:\\4code\\3lot\\修改记录_标准ZYY字段.txt"
-COUNTIES_114E = set(CONFIG_COUNTIES_114E)
 
 FIELD_TYPE_MAP = {
     "String": "TEXT",
@@ -83,67 +82,53 @@ def _text(val):
         return str(val).strip()
 
 
-def _load_county_names():
-    county_map = {}
-    if not arcpy.Exists(COUNTY_DBF):
-        return county_map
-    try:
-        with arcpy.da.SearchCursor(COUNTY_DBF, [u"县代码", u"县"]) as cur:
-            for code, name in cur:
-                if code and name:
-                    county_map[_text(code)] = _text(name)
-    except Exception:
-        pass
-    return county_map
-
-
-def _needs_114_projection(fc):
-    county_map = _load_county_names()
-    counties = set()
+def _projection_zone_for_fc(fc):
+    zones = set()
     try:
         field_names = {f.name.upper(): f.name for f in arcpy.ListFields(fc)}
         xian_field = field_names.get("XIAN")
         if not xian_field:
-            return False
+            return None
         with arcpy.da.SearchCursor(fc, [xian_field]) as cur:
             for (xian,) in cur:
                 if xian is None:
                     continue
-                counties.add(county_map.get(_text(xian), _text(xian)))
+                zones.add(county_zone(xian))
     except Exception:
-        return False
-    return bool(counties) and counties.issubset(COUNTIES_114E)
+        return None
+    if len(zones) == 1:
+        zone = list(zones)[0]
+        if zone != DEFAULT_ZONE:
+            return zone
+    return None
 
 
-def _load_114_sr():
-    if not os.path.exists(PROJECT_114_PRJ):
+def _load_sr(zone):
+    prj_path = prj_path_for_zone(zone)
+    if not os.path.exists(prj_path):
         return None
     sr = arcpy.SpatialReference()
-    with open(PROJECT_114_PRJ, "r") as f:
+    with open(prj_path, "r") as f:
         sr.loadFromString(f.read())
     return sr
 
 
-def _county_name(xian, county_map):
-    xian_text = _text(xian)
-    return county_map.get(xian_text, xian_text)
-
-
-def _project_to_114_if_needed(fc):
-    if not os.path.exists(PROJECT_114_PRJ):
-        print("  警告：114E投影文件不存在，跳过投影")
+def _project_to_zone_if_needed(fc):
+    zone = _projection_zone_for_fc(fc)
+    if not zone:
         return fc
-    if not _needs_114_projection(fc):
+    sr = _load_sr(zone)
+    if sr is None:
+        print("  警告：{}E投影文件不存在，跳过投影".format(zone))
         return fc
 
-    tmp_fc = gdb + u"\\tmp_114_source"
+    tmp_fc = gdb + u"\\tmp_%s_source" % zone
     if arcpy.Exists(tmp_fc):
         arcpy.Delete_management(tmp_fc)
-    sr = _load_114_sr()
     arcpy.Project_management(fc, tmp_fc, sr)
     arcpy.Delete_management(fc)
     arcpy.Rename_management(tmp_fc, os.path.basename(fc))
-    print("  已将数据投影到CGCS2000_3_Degree_GK_CM_114E")
+    print("  已将数据投影到CGCS2000_3_Degree_GK_CM_{}E".format(zone))
     return fc
 
 
@@ -256,18 +241,21 @@ def modify_fields():
         print("  修改 {} 条".format(cnt))
 
     # ---- 步骤2: XBMJ 重新计算（平面几何面积，公顷）并删除0面积记录 ----
-    print("2/19: XBMJ 平面几何面积重算（公顷，配置县按114E）")
-    county_map = _load_county_names()
-    sr_114 = _load_114_sr()
-    if sr_114 is None:
-        print("  警告：114E投影文件不存在，配置县按原投影计算")
+    print("2/19: XBMJ 平面几何面积重算（公顷，按县配置投影带）")
+    sr_cache = {}
     with arcpy.da.UpdateCursor(target_fc, ["SHAPE@", "XIAN", "XBMJ"]) as cursor:
         cnt = 0
         for row in cursor:
             try:
                 geom = row[0]
-                if sr_114 is not None and _county_name(row[1], county_map) in COUNTIES_114E:
-                    geom = geom.projectAs(sr_114)
+                zone = county_zone(row[1])
+                if zone != DEFAULT_ZONE:
+                    if zone not in sr_cache:
+                        sr_cache[zone] = _load_sr(zone)
+                        if sr_cache[zone] is None:
+                            print("  警告：{}E投影文件不存在，该带按原投影计算".format(zone))
+                    if sr_cache.get(zone) is not None:
+                        geom = geom.projectAs(sr_cache[zone])
                 row[2] = round(geom.getArea("PLANAR", "HECTARES"), 4)
                 cursor.updateRow(row)
                 cnt += 1
@@ -561,7 +549,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     try:
-        target_fc = _project_to_114_if_needed(target_fc)
+        target_fc = _project_to_zone_if_needed(target_fc)
         modify_fields()
         check_field_properties()
         save_changelog()

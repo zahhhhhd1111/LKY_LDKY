@@ -10,9 +10,9 @@ SCRIPT_DIR = r"C:\4code\3lot"
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 from project_config import (
-    GDB, ZYY_TARGET_FC_NAME, TEMPLATE_DIR_111, TEMPLATE_DIR_114,
-    OUTPUT_BASE, COUNTY_DBF, PROJECT_114_PRJ,
-    COUNTIES_114E as CONFIG_COUNTIES_114E,
+    GDB, ZYY_TARGET_FC_NAME, TEMPLATE_DIR_111, OUTPUT_BASE,
+    DEFAULT_ZONE, county_name, county_zone, prj_path_for_zone,
+    template_dir_for_county,
 )
 
 reload(sys)
@@ -21,43 +21,25 @@ sys.setdefaultencoding('utf-8')
 gdb = GDB
 target_fc = gdb + u"/" + ZYY_TARGET_FC_NAME
 template_dir_111 = TEMPLATE_DIR_111
-template_dir_114 = TEMPLATE_DIR_114
 output_base = OUTPUT_BASE
 SKIP_FIELDS = {"OBJECTID", "SHAPE", "SHAPE_LENGTH", "SHAPE_AREA"}
-COUNTIES_114E = set(CONFIG_COUNTIES_114E)
 
 
-def _text(val):
-    if val is None:
-        return u""
-    try:
-        return unicode(val).strip()
-    except Exception:
-        return str(val).strip()
-
-# 读取县代码→名称映射
-CODE_NAME_MAP = {}
-if arcpy.Exists(COUNTY_DBF):
-    with arcpy.da.SearchCursor(COUNTY_DBF, [u"县代码", u"县"]) as cur:
-        for r in cur:
-            if r[0] and r[1]:
-                CODE_NAME_MAP[_text(r[0])] = _text(r[1])
-
-
-def _project_fc_if_needed(fc, xian_name, tmp_name):
-    if xian_name not in COUNTIES_114E:
+def _project_fc_if_needed(fc, zone, tmp_name):
+    if zone == DEFAULT_ZONE:
         return fc
-    if not os.path.exists(PROJECT_114_PRJ):
-        print u"  警告：114E投影文件不存在，跳过投影"
+    prj_path = prj_path_for_zone(zone)
+    if not os.path.exists(prj_path):
+        print u"  警告：%sE投影文件不存在，跳过投影" % zone
         return fc
     tmp_fc = os.path.join(gdb, tmp_name)
     if arcpy.Exists(tmp_fc):
         arcpy.Delete_management(tmp_fc)
     sr = arcpy.SpatialReference()
-    with open(PROJECT_114_PRJ, "r") as f:
+    with open(prj_path, "r") as f:
         sr.loadFromString(f.read())
     arcpy.Project_management(fc, tmp_fc, sr)
-    print u"  已投影到CGCS2000_3_Degree_GK_CM_114E"
+    print u"  已投影到CGCS2000_3_Degree_GK_CM_%sE" % zone
     return tmp_fc
 
 
@@ -77,10 +59,11 @@ def export_by_xian():
     print u"共 %d 个县: %s" % (len(xian_vals), u", ".join(xian_vals))
 
     for xian in xian_vals:
-        xian_name = CODE_NAME_MAP.get(xian, xian)
-        print u"\n--- %s (%s) ---" % (xian, xian_name)
+        xian_name = county_name(xian)
+        zone = county_zone(xian)
+        print u"\n--- %s (%s, %sE) ---" % (xian, xian_name, zone)
 
-        cur_template_dir = template_dir_114 if xian_name in COUNTIES_114E else template_dir_111
+        cur_template_dir = template_dir_for_county(xian)
         if not os.path.exists(cur_template_dir):
             print u"  错误：模版目录不存在！"
             continue
@@ -111,7 +94,7 @@ def export_by_xian():
             continue
         print u"  筛选 %d 条" % cnt
 
-        export_fc = _project_fc_if_needed(temp_fc, xian_name, "tmp_xian_114_" + xian)
+        export_fc = _project_fc_if_needed(temp_fc, zone, "tmp_xian_" + zone + "_" + xian)
 
         shp_dir = os.path.join(out_dir, u"林地图斑")
         # 删除整个林地图斑目录（避免 .sr.lock 文件权限问题）

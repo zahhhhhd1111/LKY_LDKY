@@ -10,7 +10,7 @@ if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 from project_config import (
     GDB, XMHX_SOURCE_FC_NAME, TEMPLATE_DIR_111, OUTPUT_BASE,
-    COUNTY_DBF, PROJECT_114_PRJ, COUNTIES_114E as CONFIG_COUNTIES_114E,
+    DEFAULT_ZONE, county_name, county_zone, prj_path_for_zone,
 )
 
 reload(sys)
@@ -21,31 +21,32 @@ source_fc = gdb + u"/" + XMHX_SOURCE_FC_NAME
 template_dir_111 = TEMPLATE_DIR_111
 output_base = OUTPUT_BASE
 SKIP_FIELDS = {"OBJECTID", "SHAPE", "SHAPE_LENGTH", "SHAPE_AREA"}
-COUNTIES_114E = set(CONFIG_COUNTIES_114E)
-
-# 读取县代码→名称映射
-CODE_NAME_MAP = {}
-if arcpy.Exists(COUNTY_DBF):
-    with arcpy.da.SearchCursor(COUNTY_DBF, [u"县代码", u"县"]) as cur:
-        for r in cur:
-            if r[0] and r[1]:
-                CODE_NAME_MAP[unicode(r[0]).strip()] = unicode(r[1]).strip()
 
 
-def _project_fc_if_needed(fc, xian_name, tmp_name):
-    if xian_name not in COUNTIES_114E:
+def _text(val):
+    if val is None:
+        return u""
+    try:
+        return unicode(val).strip()
+    except Exception:
+        return str(val).strip()
+
+
+def _project_fc_if_needed(fc, zone, tmp_name):
+    if zone == DEFAULT_ZONE:
         return fc
-    if not os.path.exists(PROJECT_114_PRJ):
-        print u"  警告：114E投影文件不存在，跳过投影"
+    prj_path = prj_path_for_zone(zone)
+    if not os.path.exists(prj_path):
+        print u"  警告：%sE投影文件不存在，跳过投影" % zone
         return fc
     tmp_fc = os.path.join(gdb, tmp_name)
     if arcpy.Exists(tmp_fc):
         arcpy.Delete_management(tmp_fc)
     sr = arcpy.SpatialReference()
-    with open(PROJECT_114_PRJ, "r") as f:
+    with open(prj_path, "r") as f:
         sr.loadFromString(f.read())
     arcpy.Project_management(fc, tmp_fc, sr)
-    print u"  已投影到CGCS2000_3_Degree_GK_CM_114E"
+    print u"  已投影到CGCS2000_3_Degree_GK_CM_%sE" % zone
     return tmp_fc
 
 
@@ -63,6 +64,12 @@ def export_xmhx_by_xian():
     if not arcpy.Exists(source_fc):
         print u"错误：源要素类不存在！"
         return
+    source_fields = {f.name.upper(): f.name for f in arcpy.ListFields(source_fc)}
+    xian_field = source_fields.get("XIAN") or source_fields.get(u"县代码")
+    if not xian_field:
+        print u"错误：源要素类缺少 XIAN/县代码 字段，无法按县导出！"
+        return
+    xian_field_obj = [f for f in arcpy.ListFields(source_fc) if f.name == xian_field][0]
 
     # 从模版XMHX获取目标字段集合及字段属性
     template_xmhx = os.path.join(template_dir_111, u"项目红线", "XMHX.shp")
@@ -95,13 +102,14 @@ def export_xmhx_by_xian():
         print u"以下字段不在模版XMHX中，将被删除: %s" % u", ".join(extra_fields)
 
     xian_vals = sorted(set(
-        r[0].strip() for r in arcpy.da.SearchCursor(source_fc, ["XIAN"]) if r[0]
+        _text(r[0]) for r in arcpy.da.SearchCursor(source_fc, [xian_field]) if r[0]
     ))
     print u"共 %d 个县: %s" % (len(xian_vals), u", ".join(xian_vals))
 
     for xian in xian_vals:
-        xian_name = CODE_NAME_MAP.get(xian, xian)
-        print u"\n--- %s (%s) ---" % (xian, xian_name)
+        xian_name = county_name(xian)
+        zone = county_zone(xian)
+        print u"\n--- %s (%s, %sE) ---" % (xian, xian_name, zone)
 
         xmhx_dir = os.path.join(output_base, xian_name, u"项目红线")
 
@@ -117,9 +125,14 @@ def export_xmhx_by_xian():
             fmap.addFieldMap(fm)
 
         tmp_filtered = os.path.join(gdb, "tmp_xmhx_f_" + xian)
+        where_field = arcpy.AddFieldDelimiters(gdb, xian_field)
+        if xian_field_obj.type in ("Integer", "SmallInteger", "Double", "Single"):
+            where_clause = u"%s = %s" % (where_field, xian)
+        else:
+            where_clause = u"%s = '%s'" % (where_field, xian)
         arcpy.FeatureClassToFeatureClass_conversion(
             source_fc, gdb, "tmp_xmhx_f_" + xian,
-            u"XIAN = '%s'" % xian, field_mapping=fmap
+            where_clause, field_mapping=fmap
         )
 
         cnt = int(arcpy.GetCount_management(tmp_filtered).getOutput(0))
@@ -129,7 +142,7 @@ def export_xmhx_by_xian():
             continue
         print u"  筛选 %d 条" % cnt
 
-        tmp_working = _project_fc_if_needed(tmp_filtered, xian_name, "tmp_xmhx_114_" + xian)
+        tmp_working = _project_fc_if_needed(tmp_filtered, zone, "tmp_xmhx_" + zone + "_" + xian)
 
         # Step 2: 合并为一个小班（直接 FIRST）
         tmp_dissolved = os.path.join(gdb, "tmp_xmhx_d_" + xian)

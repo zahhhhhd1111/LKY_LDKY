@@ -14,7 +14,7 @@ import pandas as pd
 import numpy as np
 from openpyxl import load_workbook
 
-from project_config import OUTPUT_BASE, STANDARD_FILE, COUNTY_DBF
+from project_config import OUTPUT_BASE, STANDARD_FILE, COUNTY_CODE_TO_NAME
 
 warnings.filterwarnings("ignore")
 
@@ -451,19 +451,6 @@ def parse_village_names(md_path):
             names[(county_name, town_code, village_code)] = parts[3]
             names[(town_code, village_code)] = parts[3]
     return names
-
-# ============================================================
-# 县名映射
-# ============================================================
-def read_county_map(dbf_path):
-    if not os.path.exists(dbf_path): return {}, {}
-    t = read_dbf_table(dbf_path)
-    c2n, n2c = {}, {}
-    for _, r in t.iterrows():
-        c = _norm_code(r.get("县代码", ""), 6)
-        n = _text(r.get("县", ""))
-        if c and n: c2n[c] = n; n2c[n] = c
-    return c2n, n2c
 
 # ============================================================
 # 读 SHP
@@ -1277,7 +1264,7 @@ def main():
     print(f"  乡镇: {len(tn)} 项, 行政村: {len(vn)} 项")
 
     print("\n[2] 县名...")
-    c2n, _ = read_county_map(COUNTY_DBF)
+    c2n = dict(COUNTY_CODE_TO_NAME)
     print(f"  {len(c2n)} 个县")
 
     print("\n[3] 处理...")

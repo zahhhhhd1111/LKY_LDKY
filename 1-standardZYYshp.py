@@ -18,8 +18,8 @@ SCRIPT_DIR = r"C:\4code\3lot"
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 from project_config import (
-    GDB, ZYY_SOURCE_FC_NAME, ZYY_TARGET_FC_NAME, COUNTY_DBF,
-    PROJECT_114_PRJ, COUNTIES_114E as CONFIG_COUNTIES_114E,
+    GDB, ZYY_SOURCE_FC_NAME, ZYY_TARGET_FC_NAME, DEFAULT_ZONE,
+    county_zone, prj_path_for_zone,
 )
 
 # Python 2.7 中文编码修复
@@ -61,7 +61,6 @@ gdb = GDB
 source_fc = gdb + u"\\" + ZYY_SOURCE_FC_NAME
 target_fc_name = ZYY_TARGET_FC_NAME
 target_fc = gdb + u"\\" + target_fc_name
-COUNTIES_114E = set(CONFIG_COUNTIES_114E)
 
 # ========== ZZY标准字段定义 ==========
 # (字段名, 类型, 别名, 长度, 小数位)
@@ -198,53 +197,44 @@ def _text(val):
         return str(val).strip()
 
 
-def _load_county_names():
-    county_map = {}
-    if not arcpy.Exists(COUNTY_DBF):
-        return county_map
-    try:
-        with arcpy.da.SearchCursor(COUNTY_DBF, [u"县代码", u"县"]) as cur:
-            for code, name in cur:
-                if code and name:
-                    county_map[_text(code)] = _text(name)
-    except Exception:
-        pass
-    return county_map
-
-
-def _needs_114_projection(fc):
-    county_map = _load_county_names()
-    counties = set()
+def _projection_zone_for_fc(fc):
+    zones = set()
     try:
         field_names = {f.name.upper(): f.name for f in arcpy.ListFields(fc)}
         xian_field = field_names.get("XIAN")
         if not xian_field:
-            return False
+            return None
         with arcpy.da.SearchCursor(fc, [xian_field]) as cur:
             for (xian,) in cur:
                 if xian is None:
                     continue
-                counties.add(county_map.get(_text(xian), _text(xian)))
+                zones.add(county_zone(xian))
     except Exception:
-        return False
-    return bool(counties) and counties.issubset(COUNTIES_114E)
+        return None
+    if len(zones) == 1:
+        zone = list(zones)[0]
+        if zone != DEFAULT_ZONE:
+            return zone
+    return None
 
 
-def _project_to_114_if_needed(fc):
-    if not os.path.exists(PROJECT_114_PRJ):
-        print("  警告：114E投影文件不存在，跳过投影")
+def _project_to_zone_if_needed(fc):
+    zone = _projection_zone_for_fc(fc)
+    if not zone:
         return fc
-    if not _needs_114_projection(fc):
+    prj_path = prj_path_for_zone(zone)
+    if not os.path.exists(prj_path):
+        print("  警告：{}E投影文件不存在，跳过投影".format(zone))
         return fc
 
-    tmp_fc = gdb + r"\tmp_114_source"
+    tmp_fc = gdb + r"\tmp_%s_source" % zone
     if arcpy.Exists(tmp_fc):
         arcpy.Delete_management(tmp_fc)
     sr = arcpy.SpatialReference()
-    with open(PROJECT_114_PRJ, "r") as f:
+    with open(prj_path, "r") as f:
         sr.loadFromString(f.read())
     arcpy.Project_management(fc, tmp_fc, sr)
-    print("  已将数据投影到CGCS2000_3_Degree_GK_CM_114E")
+    print("  已将数据投影到CGCS2000_3_Degree_GK_CM_{}E".format(zone))
     return tmp_fc
 
 
@@ -431,7 +421,7 @@ if __name__ == "__main__":
 
     original_source_fc = source_fc
     try:
-        source_fc = _project_to_114_if_needed(source_fc)
+        source_fc = _project_to_zone_if_needed(source_fc)
         add_fields()
         copy_data()
         print_summary()
