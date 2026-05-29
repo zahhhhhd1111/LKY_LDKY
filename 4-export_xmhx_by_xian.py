@@ -2,29 +2,38 @@
 #在gis python窗口运行：
 #execfile(r'C:\4code\3lot\4-export_xmhx_by_xian.py')
 
-import os, shutil
+import os, shutil, sys
 import arcpy
 
-gdb = u"C:/4code/3lot/输出结果.gdb"
-source_fc = gdb + u"/wuxianhebing_cachu"
-template_dir_111 = u"C:/4code/3lot/模版-1009征占用林地数据模板CGCG2000_111"
-output_base = u"C:/Users/zhong/Downloads/work file/五个垸和防护堤/结果/按县导出结果"
+SCRIPT_DIR = r"C:\4code\3lot"
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
+from project_config import (
+    GDB, XMHX_SOURCE_FC_NAME, TEMPLATE_DIR_111, OUTPUT_BASE,
+    COUNTY_DBF, PROJECT_114_PRJ, COUNTIES_114E as CONFIG_COUNTIES_114E,
+)
+
+reload(sys)
+sys.setdefaultencoding('utf-8')
+
+gdb = GDB
+source_fc = gdb + u"/" + XMHX_SOURCE_FC_NAME
+template_dir_111 = TEMPLATE_DIR_111
+output_base = OUTPUT_BASE
 SKIP_FIELDS = {"OBJECTID", "SHAPE", "SHAPE_LENGTH", "SHAPE_AREA"}
-SPECIAL_COUNTIES = set([u"华容县", u"湘阴县"])
-PROJECT_114_PRJ = u"C:/4code/3lot/模版-1009征占用林地数据模板CGCG2000_114/林地图斑/ZZY.prj"
+COUNTIES_114E = set(CONFIG_COUNTIES_114E)
 
 # 读取县代码→名称映射
 CODE_NAME_MAP = {}
-dbf_path = u"C:/4code/3lot/县名.dbf"
-if os.path.exists(dbf_path):
-    with arcpy.da.SearchCursor(dbf_path, [u"县代码", u"县"]) as cur:
+if arcpy.Exists(COUNTY_DBF):
+    with arcpy.da.SearchCursor(COUNTY_DBF, [u"县代码", u"县"]) as cur:
         for r in cur:
             if r[0] and r[1]:
                 CODE_NAME_MAP[unicode(r[0]).strip()] = unicode(r[1]).strip()
 
 
 def _project_fc_if_needed(fc, xian_name, tmp_name):
-    if xian_name not in SPECIAL_COUNTIES:
+    if xian_name not in COUNTIES_114E:
         return fc
     if not os.path.exists(PROJECT_114_PRJ):
         print u"  警告：114E投影文件不存在，跳过投影"
@@ -52,7 +61,7 @@ def export_xmhx_by_xian():
             pass
 
     if not arcpy.Exists(source_fc):
-        print u"错误：源要素类 wuxianhebing 不存在！"
+        print u"错误：源要素类不存在！"
         return
 
     # 从模版XMHX获取目标字段集合及字段属性
@@ -233,7 +242,7 @@ def export_xmhx_by_xian():
 
 # 直接执行
 print "=" * 60
-print u"  wuxianhebing → XMHX 分县导出（合并+平面几何面积）"
+print u"  项目红线 → XMHX 分县导出（合并+平面几何面积）"
 print u"  源要素类: " + source_fc
 print "=" * 60
 export_xmhx_by_xian()

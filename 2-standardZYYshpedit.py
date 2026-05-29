@@ -13,6 +13,14 @@ import sys
 import os
 import traceback
 
+SCRIPT_DIR = r"C:\4code\3lot"
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
+from project_config import (
+    GDB, ZYY_TARGET_FC_NAME, STANDARD_FILE, COUNTY_DBF,
+    PROJECT_114_PRJ, COUNTIES_114E as CONFIG_COUNTIES_114E,
+)
+
 reload(sys)
 sys.setdefaultencoding('utf-8')
 
@@ -46,13 +54,10 @@ if not _arcpy_found:
     sys.exit(1)
 
 # ========== 路径配置 ==========
-gdb = u"C:\\4code\\3lot\\输出结果.gdb"
-target_fc = gdb + u"\\五县ZYY_标准字段版"
+gdb = GDB
+target_fc = gdb + u"\\" + ZYY_TARGET_FC_NAME
 CHANGE_LOG_PATH = u"C:\\4code\\3lot\\修改记录_标准ZYY字段.txt"
-STANDARD_FILE = u"C:\\4code\\3lot\\ZYY字段属性标准设置.MD"
-COUNTY_DBF = u"C:\\4code\\3lot\\县名.dbf"
-SPECIAL_COUNTIES = set([u"华容县", u"湘阴县"])
-PROJECT_114_PRJ = u"C:\\4code\\3lot\\模版-1009征占用林地数据模板CGCG2000_114\\林地图斑\\ZZY.prj"
+COUNTIES_114E = set(CONFIG_COUNTIES_114E)
 
 FIELD_TYPE_MAP = {
     "String": "TEXT",
@@ -80,7 +85,7 @@ def _text(val):
 
 def _load_county_names():
     county_map = {}
-    if not os.path.exists(COUNTY_DBF):
+    if not arcpy.Exists(COUNTY_DBF):
         return county_map
     try:
         with arcpy.da.SearchCursor(COUNTY_DBF, [u"县代码", u"县"]) as cur:
@@ -107,7 +112,7 @@ def _needs_114_projection(fc):
                 counties.add(county_map.get(_text(xian), _text(xian)))
     except Exception:
         return False
-    return bool(counties) and counties.issubset(SPECIAL_COUNTIES)
+    return bool(counties) and counties.issubset(COUNTIES_114E)
 
 
 def _load_114_sr():
@@ -251,17 +256,17 @@ def modify_fields():
         print("  修改 {} 条".format(cnt))
 
     # ---- 步骤2: XBMJ 重新计算（平面几何面积，公顷）并删除0面积记录 ----
-    print("2/19: XBMJ 平面几何面积重算（公顷，华容/湘阴按114E）")
+    print("2/19: XBMJ 平面几何面积重算（公顷，配置县按114E）")
     county_map = _load_county_names()
     sr_114 = _load_114_sr()
     if sr_114 is None:
-        print("  警告：114E投影文件不存在，华容/湘阴按原投影计算")
+        print("  警告：114E投影文件不存在，配置县按原投影计算")
     with arcpy.da.UpdateCursor(target_fc, ["SHAPE@", "XIAN", "XBMJ"]) as cursor:
         cnt = 0
         for row in cursor:
             try:
                 geom = row[0]
-                if sr_114 is not None and _county_name(row[1], county_map) in SPECIAL_COUNTIES:
+                if sr_114 is not None and _county_name(row[1], county_map) in COUNTIES_114E:
                     geom = geom.projectAs(sr_114)
                 row[2] = round(geom.getArea("PLANAR", "HECTARES"), 4)
                 cursor.updateRow(row)

@@ -2,8 +2,8 @@
 from __future__ import print_function
 """
 生成符合ZYY标准字段结构的工作矢量新版
-输入：五县ZYY空间连接保护区
-输出：五县ZYY_标准字段版（在同个GDB中）
+输入：project_config.py 中配置的 ZYY_SOURCE_FC_NAME
+输出：project_config.py 中配置的 ZYY_TARGET_FC_NAME（在同个GDB中）
 
 使用方法：
   在ArcGIS Python窗口运行：
@@ -13,6 +13,14 @@ from __future__ import print_function
 import sys
 import os
 import traceback
+
+SCRIPT_DIR = r"C:\4code\3lot"
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
+from project_config import (
+    GDB, ZYY_SOURCE_FC_NAME, ZYY_TARGET_FC_NAME, COUNTY_DBF,
+    PROJECT_114_PRJ, COUNTIES_114E as CONFIG_COUNTIES_114E,
+)
 
 # Python 2.7 中文编码修复
 reload(sys)
@@ -49,13 +57,11 @@ if not _arcpy_found:
     sys.exit(1)
 
 # ========== 路径配置 ==========
-gdb = r"C:\4code\3lot\输出结果.gdb"
-source_fc = gdb + r"\五县ZYY空间连接保护区"
-target_fc_name = "五县ZYY_标准字段版测试"
-target_fc = gdb + "\\" + target_fc_name
-SPECIAL_COUNTIES = set([u"华容县", u"湘阴县"])
-PROJECT_114_PRJ = r"C:\4code\3lot\模版-1009征占用林地数据模板CGCG2000_114\林地图斑\ZZY.prj"
-COUNTY_DBF = u"C:\\4code\\3lot\\县名.dbf"
+gdb = GDB
+source_fc = gdb + u"\\" + ZYY_SOURCE_FC_NAME
+target_fc_name = ZYY_TARGET_FC_NAME
+target_fc = gdb + u"\\" + target_fc_name
+COUNTIES_114E = set(CONFIG_COUNTIES_114E)
 
 # ========== ZZY标准字段定义 ==========
 # (字段名, 类型, 别名, 长度, 小数位)
@@ -194,7 +200,7 @@ def _text(val):
 
 def _load_county_names():
     county_map = {}
-    if not os.path.exists(COUNTY_DBF):
+    if not arcpy.Exists(COUNTY_DBF):
         return county_map
     try:
         with arcpy.da.SearchCursor(COUNTY_DBF, [u"县代码", u"县"]) as cur:
@@ -221,7 +227,7 @@ def _needs_114_projection(fc):
                 counties.add(county_map.get(_text(xian), _text(xian)))
     except Exception:
         return False
-    return bool(counties) and counties.issubset(SPECIAL_COUNTIES)
+    return bool(counties) and counties.issubset(COUNTIES_114E)
 
 
 def _project_to_114_if_needed(fc):

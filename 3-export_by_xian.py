@@ -3,30 +3,49 @@
 # execfile(r'C:\4code\3lot\3-export_by_xian.py')
 # 
 
-import os, shutil
+import os, shutil, sys
 import arcpy
 
-gdb = u"C:/4code/3lot/输出结果.gdb"
-target_fc = gdb + u"/五县ZYY_标准字段版"
-template_dir_111 = u"C:/4code/3lot/模版-1009征占用林地数据模板CGCG2000_111"
-template_dir_114 = u"C:/4code/3lot/模版-1009征占用林地数据模板CGCG2000_114"
-output_base = u"C:/Users/zhong/Downloads/work file/五个垸和防护堤/结果/按县导出结果"
+SCRIPT_DIR = r"C:\4code\3lot"
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
+from project_config import (
+    GDB, ZYY_TARGET_FC_NAME, TEMPLATE_DIR_111, TEMPLATE_DIR_114,
+    OUTPUT_BASE, COUNTY_DBF, PROJECT_114_PRJ,
+    COUNTIES_114E as CONFIG_COUNTIES_114E,
+)
+
+reload(sys)
+sys.setdefaultencoding('utf-8')
+
+gdb = GDB
+target_fc = gdb + u"/" + ZYY_TARGET_FC_NAME
+template_dir_111 = TEMPLATE_DIR_111
+template_dir_114 = TEMPLATE_DIR_114
+output_base = OUTPUT_BASE
 SKIP_FIELDS = {"OBJECTID", "SHAPE", "SHAPE_LENGTH", "SHAPE_AREA"}
-SPECIAL_COUNTIES = set([u"华容县", u"湘阴县"])
-PROJECT_114_PRJ = u"C:/4code/3lot/模版-1009征占用林地数据模板CGCG2000_114/林地图斑/ZZY.prj"
+COUNTIES_114E = set(CONFIG_COUNTIES_114E)
+
+
+def _text(val):
+    if val is None:
+        return u""
+    try:
+        return unicode(val).strip()
+    except Exception:
+        return str(val).strip()
 
 # 读取县代码→名称映射
 CODE_NAME_MAP = {}
-dbf_path = u"C:/4code/3lot/县名.dbf"
-if os.path.exists(dbf_path):
-    with arcpy.da.SearchCursor(dbf_path, [u"县代码", u"县"]) as cur:
+if arcpy.Exists(COUNTY_DBF):
+    with arcpy.da.SearchCursor(COUNTY_DBF, [u"县代码", u"县"]) as cur:
         for r in cur:
             if r[0] and r[1]:
-                CODE_NAME_MAP[str(r[0]).strip()] = str(r[1]).strip()
+                CODE_NAME_MAP[_text(r[0])] = _text(r[1])
 
 
 def _project_fc_if_needed(fc, xian_name, tmp_name):
-    if xian_name not in SPECIAL_COUNTIES:
+    if xian_name not in COUNTIES_114E:
         return fc
     if not os.path.exists(PROJECT_114_PRJ):
         print u"  警告：114E投影文件不存在，跳过投影"
@@ -61,7 +80,7 @@ def export_by_xian():
         xian_name = CODE_NAME_MAP.get(xian, xian)
         print u"\n--- %s (%s) ---" % (xian, xian_name)
 
-        cur_template_dir = template_dir_114 if xian_name in SPECIAL_COUNTIES else template_dir_111
+        cur_template_dir = template_dir_114 if xian_name in COUNTIES_114E else template_dir_111
         if not os.path.exists(cur_template_dir):
             print u"  错误：模版目录不存在！"
             continue

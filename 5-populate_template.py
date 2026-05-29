@@ -14,12 +14,12 @@ import pandas as pd
 import numpy as np
 from openpyxl import load_workbook
 
+from project_config import OUTPUT_BASE, STANDARD_FILE, COUNTY_DBF
+
 warnings.filterwarnings("ignore")
 
-BASE_DIR = r"C:\Users\zhong\Downloads\work file\五个垸和防护堤\结果\按县导出结果"
-MD_FILE = r"c:\4code\3lot\ZYY字段属性标准设置.MD"
-COUNTY_DBF = r"c:\4code\3lot\县名.dbf"
-COUNTIES = ["安乡县", "鼎城区", "汉寿县", "华容县", "沅江市"]
+BASE_DIR = OUTPUT_BASE
+MD_FILE = STANDARD_FILE
 
 SHEET_A1 = "表A.1建设项目使用林地因子调查表"
 SHEET_B1 = "表B.1项目使用林地按林地类型面积蓄积统计表"
@@ -1187,6 +1187,19 @@ def update_fee(ws, a1_df):
 # ============================================================
 # 处理单县
 # ============================================================
+def discover_counties(base_dir=BASE_DIR):
+    if not os.path.isdir(base_dir):
+        return []
+    counties = []
+    for cname in sorted(os.listdir(base_dir)):
+        county_dir = os.path.join(base_dir, cname)
+        zzy = os.path.join(county_dir, "林地图斑", "ZZY.shp")
+        tpl = os.path.join(county_dir, "可研数据", "可研附表模板.xlsx")
+        if os.path.isdir(county_dir) and os.path.exists(zzy) and os.path.exists(tpl):
+            counties.append(cname)
+    return counties
+
+
 def process_county(cname, dicts, c2n, town_names, vill_names):
     print(f"\n===== {cname} =====")
     d = os.path.join(BASE_DIR, cname)
@@ -1219,10 +1232,10 @@ def process_county(cname, dicts, c2n, town_names, vill_names):
     print("  ✓")
     return True
 
-def zip_county_dirs():
+def zip_county_dirs(counties):
     print("\n[4] 压缩县目录...")
     zip_paths = []
-    for cname in COUNTIES:
+    for cname in counties:
         county_dir = os.path.join(BASE_DIR, cname)
         if not os.path.isdir(county_dir):
             print(f"  跳过: 无目录 {cname}")
@@ -1268,9 +1281,14 @@ def main():
     print(f"  {len(c2n)} 个县")
 
     print("\n[3] 处理...")
-    ok = sum(1 for c in COUNTIES if process_county(c, dicts, c2n, tn, vn))
-    print(f"\n完成: {ok}/{len(COUNTIES)}")
-    zip_county_dirs()
+    counties = discover_counties()
+    if not counties:
+        print(f"  未发现可处理县目录: {BASE_DIR}")
+        return
+    print(f"  发现 {len(counties)} 个县: {', '.join(counties)}")
+    ok = sum(1 for c in counties if process_county(c, dicts, c2n, tn, vn))
+    print(f"\n完成: {ok}/{len(counties)}")
+    zip_county_dirs(counties)
 
 if __name__ == "__main__":
     main()
