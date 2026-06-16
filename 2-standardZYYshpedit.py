@@ -310,8 +310,12 @@ def modify_fields():
                     row[2] = None; c[2] += 1
             elif is_null(row[2]):   # 6. QI_YUAN
                 row[2] = "20"; c[2] += 1
-            if row[3] is not None and str(row[3]).strip() == "1":  # 7. ZRBHQ_DJ
-                row[3] = u"国家级"; c[3] += 1
+            if row[3] is not None:  # 7. ZRBHQ_DJ
+                zrbhq_dj = str(row[3]).strip()
+                if zrbhq_dj == "1":
+                    row[3] = u"国家级"; c[3] += 1
+                elif zrbhq_dj == "2":
+                    row[3] = u"省级"; c[3] += 1
             if row[4] is None:    # 8. PINGJUN_XJ
                 row[4] = 0.0; c[4] += 1
             if row[5] is None:    # 9. HUO_LMGQXJ
@@ -336,7 +340,7 @@ def modify_fields():
         print("  4. BH_DJ: {}".format(c[0]))
         print("  5. SEN_LIN_LB: {}".format(c[1]))
         print("  6. QI_YUAN: {}".format(c[2]))
-        print("  7. ZRBHQ_DJ(1->国家级): {}".format(c[3]))
+        print("  7. ZRBHQ_DJ(1->国家级, 2->省级): {}".format(c[3]))
         print("  8. PINGJUN_XJ: {}".format(c[4]))
         print("  9. HUO_LMGQXJ: {}".format(c[5]))
         print("  11. MEI_GQ_ZS: {}".format(c[6]))
@@ -503,7 +507,7 @@ def save_changelog():
         ("BH_DJ",       u"空值->4"),
         ("SEN_LIN_LB",  u"空值->022"),
         ("QI_YUAN",     u"DI_LEI=030405时留空，其余空值->20"),
-        ("ZRBHQ_DJ",    u"1->国家级（不填空值）"),
+        ("ZRBHQ_DJ",    u"1->国家级，2->省级（不填空值）"),
         ("PINGJUN_XJ",  u"空值->0"),
         ("HUO_LMGQXJ",  u"空值->0"),
         ("XIAO_BAN_X",  u"= HUO_LMGQXJ x XBMJ"),

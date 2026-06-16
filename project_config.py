@@ -15,6 +15,7 @@ GDB = PROJECT_DIR + u"/输出结果.gdb"
 ZYY_SOURCE_FC_NAME = u"多县ZYY空间连接保护区"
 ZYY_TARGET_FC_NAME = u"多县ZYY_标准字段版"
 XMHX_SOURCE_FC_NAME = u"多县合并红线_擦除历史"
+COUNTY_BOUNDARY_FC_NAME = u"重点垸三调县界_M"
 
 TEMPLATE_DIR_108 = PROJECT_DIR + u"/模版-1009征占用林地数据模板CGCG2000_108"
 TEMPLATE_DIR_111 = PROJECT_DIR + u"/模版-1009征占用林地数据模板CGCG2000_111"

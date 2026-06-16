@@ -197,6 +197,34 @@ def _text(val):
         return str(val).strip()
 
 
+def _format_date(val):
+    """Date -> yyyyMMdd; text values are normalized without failing."""
+    if val is None:
+        return val
+    if hasattr(val, "strftime"):
+        return val.strftime("%Y%m%d")
+    s = _text(val)
+    return s.replace("-", "").replace("/", "").replace(".", "")
+
+
+def _convert_for_target(val, field_type):
+    if val is None:
+        return None
+    if field_type in ("String", "Guid", "GlobalID"):
+        return val
+    if field_type in ("Double", "Single"):
+        s = _text(val)
+        if s == "":
+            return None
+        return float(s)
+    if field_type in ("Integer", "SmallInteger"):
+        s = _text(val)
+        if s == "":
+            return None
+        return int(float(s))
+    return val
+
+
 def _projection_zone_for_fc(fc):
     zones = set()
     try:
@@ -310,6 +338,7 @@ def copy_data():
 
     # 记录每列的处理方式
     handlers = {}  # tgt_idx -> handler_key
+    target_types = {}  # tgt_idx -> arcpy field type
 
     for src_key, tgt_key, handler in FIELD_MAP:
         su = src_key.upper()
@@ -324,6 +353,7 @@ def copy_data():
         tgt_names.append(tgt_fdict[tu].name)
         if handler:
             handlers[len(tgt_names) - 1] = handler
+        target_types[len(tgt_names) - 1] = tgt_fdict[tu].type
 
     print("  将复制 {} 个属性字段".format(len(src_names) - 1))
 
@@ -342,14 +372,15 @@ def copy_data():
                             s = str(vals[idx])
                             vals[idx] = s[-3:] if len(s) >= 3 else s
                         elif handler == "date":
-                            # Date → String yyyyMMdd
-                            vals[idx] = vals[idx].strftime("%Y%m%d")
+                            vals[idx] = _format_date(vals[idx])
+                    for idx, field_type in target_types.items():
+                        vals[idx] = _convert_for_target(vals[idx], field_type)
                     i_cur.insertRow(tuple(vals))
                     copied += 1
     except Exception as e:
         print("  !! 出错！已复制 {} 条后失败".format(copied))
         traceback.print_exc()
-        return
+        raise
 
     print("  成功复制 {} 条记录".format(copied))
 
