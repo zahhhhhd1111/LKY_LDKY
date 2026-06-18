@@ -10,6 +10,12 @@
 !5-populate_template.py
 !6-写报告.py
 !project_config.py
+!LKY_toolbox.py
+!tool1_standardize.py
+!tool2_edit.py
+!tool3_export_zzy.py
+!tool4_export_xmhx.py
+!README_工具箱.md
 !ZYY字段属性标准设置.MD
 !修改记录_标准ZYY字段.txt
 !可研附表模板.xlsx
