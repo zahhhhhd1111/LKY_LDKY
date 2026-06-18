@@ -8,8 +8,11 @@
 !3-export_by_xian.py
 !4-export_xmhx_by_xian.py
 !5-populate_template.py
+!6-写报告.py
 !project_config.py
 !ZYY字段属性标准设置.MD
+!修改记录_标准ZYY字段.txt
+!可研附表模板.xlsx
 !analyze.py
 !check_xlsx.py
 !check_node.js
