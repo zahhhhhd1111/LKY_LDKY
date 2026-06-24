@@ -4,7 +4,7 @@
 
 ## 环境
 
-- **ArcMap（自带 Python 2.7）**：跑 1~4 号脚本。
+- **ArcMap（自带 Python 2.7）**：跑 1~4、7、8 号脚本。
 - **Python 3**（装 `pandas`、`numpy`、`openpyxl`）：跑 5、6 号脚本。
 - 代码放 `C:\4code\3lot`；换目录就改 `project_config.py` 里的路径。
 
@@ -15,7 +15,7 @@
 | 图层名 | 内容 |
 |---|---|
 | `多县ZYY空间连接保护区` | 项目红线交林草湿一张图 → 空间连接保护地 → 擦除历史红线 |
-| `多县合并红线_擦除历史` | 项目红线按标准结构整理 → 擦除历史（需有 `XIAN` 或 `县代码` 字段） |
+| `多县合并红线_擦除历史` | 项目红线按标准结构整理 → 擦除历史红线 |
 
 > ⚠️ 保护区类型字段需人工核对，代码默认全写成"湿地湖泊类型"。
 
@@ -30,6 +30,13 @@ execfile(r"C:\4code\3lot\3-export_by_xian.py")
 execfile(r"C:\4code\3lot\4-export_xmhx_by_xian.py")
 ```
 
+7、8 号脚本视情况再跑（见下表"何时跑"）：
+
+```python
+execfile(r"C:\4code\3lot\7-更新红线面积字段.py")
+execfile(r"C:\4code\3lot\8-剔除调减地块统计.py")
+```
+
 **命令行（Python 3）**：
 
 ```powershell
@@ -37,14 +44,18 @@ python C:\4code\3lot\5-populate_template.py
 python C:\4code\3lot\6-写报告.py
 ```
 
-| 脚本 | 作用 |
-|---|---|
-| `1-standardZYYshp.py` | 按标准字段结构生成 ZYY 图层 |
-| `2-standardZYYshpedit.py` | 单部件化、重算面积、填充并检查字段 |
-| `3-export_by_xian.py` | 按县复制模板，导出 `林地图斑\ZZY.shp` |
-| `4-export_xmhx_by_xian.py` | 按县导出 `项目红线\XMHX.shp` |
-| `5-populate_template.py` | 填可研附表 Excel，打包县目录 |
-| `6-写报告.py` | 生成报告小任务文字 |
+| 脚本 | 作用 | 何时跑 |
+|---|---|---|
+| `1-standardZYYshp.py` | 按标准字段结构生成 ZYY 图层 | 每次 |
+| `2-standardZYYshpedit.py` | 单部件化、重算面积、填充并检查字段 | 每次 |
+| `3-export_by_xian.py` | 按县复制模板，导出 `林地图斑\ZZY.shp` | 每次 |
+| `4-export_xmhx_by_xian.py` | 按县导出 `项目红线\XMHX.shp` | 每次 |
+| `5-populate_template.py` | 填可研附表 Excel，打包县目录 | 每次 |
+| `6-写报告.py` | 生成报告小任务文字 | 每次 |
+| `7-更新红线面积字段.py` | 用分县导出的 ZYY/红线条目回写源红线 `XMPFNYTDMJ`、`NSYLDMJ` 两个面积字段 | 3、4 号跑完后，面积需对齐时 |
+| `8-剔除调减地块统计.py` | 用「二期工程调减的地块」擦除 ZYY 与红线，统计减少量，写 `8-剔除调减地块统计.md` | 有调减地块需出减少量时 |
+
+> 8 号会在 `输出结果.gdb` 生成 `ZYY_擦除调减`、`红线_擦除调减`。若后续 1~4 号要基于调减后数据运行，按 `project_config.py` 顶部注释把 `ZYY_TARGET_FC_NAME` / `XMHX_SOURCE_FC_NAME` 指向这两个要素类。
 
 成果在 `project_config.py` 的 `OUTPUT_BASE` 目录下，每县一个文件夹。
 

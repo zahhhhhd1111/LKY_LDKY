@@ -62,7 +62,7 @@
 | 1 | GDB路径 | Workspace or String | `C:\4code\3lot\输出结果.gdb` |
 | 2 | 标准字段版要素类名 | String | `多县ZYY_标准字段版` |
 | 3 | 标准文件MD路径 | String | `C:\4code\3lot\ZYY字段属性标准设置.MD` |
-| 4 | 默认投影带 | String | `111` |
+| 4 | 默认投影带 | String | `111（括号需删除，填的是多县合并矢量的投影带）` |
 
 #### 工具3：按县导出ZZY（指向 `tool3_export_zzy.py`）
 

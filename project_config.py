@@ -13,8 +13,9 @@ GDB = PROJECT_DIR + u"/输出结果.gdb"
 
 # Update these feature class names when the source data is replaced.
 ZYY_SOURCE_FC_NAME = u"多县ZYY空间连接保护区"
-ZYY_TARGET_FC_NAME = u"多县ZYY_标准字段版"
-XMHX_SOURCE_FC_NAME = u"多县合并红线_擦除历史"
+# 调减后数据：已用「二期工程调减的地块」擦除。脚本1/2 跳过（target 已标准化且 XBMJ 仍准确）。
+ZYY_TARGET_FC_NAME = u"ZYY_擦除调减"
+XMHX_SOURCE_FC_NAME = u"红线_擦除调减"
 COUNTY_BOUNDARY_FC_NAME = u"重点垸三调县界_M"
 
 TEMPLATE_DIR_108 = PROJECT_DIR + u"/模版-1009征占用林地数据模板CGCG2000_108"

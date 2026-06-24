@@ -12,6 +12,7 @@ from __future__ import print_function
 import sys
 import os
 import traceback
+from collections import defaultdict
 
 SCRIPT_DIR = r"C:\4code\3lot"
 if SCRIPT_DIR not in sys.path:
@@ -272,23 +273,105 @@ def modify_fields():
                 cnt += 1
         print("  删除 {} 条".format(cnt))
 
-    # ---- 步骤3: SYLDDKXH 按XIAN排序后从1开始编码 ----
-    print("3/19: SYLDDKXH 按XIAN排序编码")
-    pairs = []
-    with arcpy.da.SearchCursor(target_fc, ["OID@", "XIAN"]) as cursor:
-        for row in cursor:
-            pairs.append(((row[1] if row[1] else ""), row[0]))
-    pairs.sort(key=lambda x: (x[0], x[1]))
-    seq_map = {}
-    for i, (_, oid) in enumerate(pairs):
-        seq_map[oid] = str(i + 1)
+    # ---- 步骤3: SYLDDKXH 最近邻链编码（沿工程走向，环形工程可转一圈）----
+    # 每个要素按所在县投影带投影后取 labelPoint 转成点，用 ArcGIS PointDistance
+    # 算两两距离，从西北角起步做贪心最近邻链：每次跳到最近的未编号要素，
+    # 形成一条沿工程实际走向的施工路径。县间按最西点从左到右，全县连续编号。
+    print("3/19: SYLDDKXH 最近邻链编码（沿工程走向）")
+    sr_cache = {}
+    groups = defaultdict(list)          # XIAN -> [(src_oid, projected_geom), ...]
+    county_min_x = {}                   # XIAN -> 县内最西 X（用于县间排序）
+    with arcpy.da.SearchCursor(target_fc, ["OID@", "XIAN", "SHAPE@"]) as cursor:
+        for oid, xian, geom in cursor:
+            xian = xian if xian else ""
+            zone = county_zone(xian)
+            if zone != DEFAULT_ZONE and zone not in sr_cache:
+                sr_cache[zone] = _load_sr(zone)
+            sr = sr_cache.get(zone) if zone != DEFAULT_ZONE else None
+            g = geom.projectAs(sr) if (sr is not None and geom is not None) else geom
+            groups[xian].append((oid, g))
+            pt = g.labelPoint if g is not None else None
+            x = pt.X if pt is not None else 0.0
+            county_min_x[xian] = min(county_min_x.get(xian, x), x)
+
+    ordered_oids = []
+    for ci, xian in enumerate(sorted(county_min_x.keys(), key=lambda k: county_min_x[k])):
+        items = groups[xian]
+        n = len(items)
+        if n == 0:
+            continue
+        if n == 1:
+            ordered_oids.append(items[0][0])
+            continue
+
+        # 1) 建临时点要素类，写入投影后的 labelPoint，记录源 OID
+        tmp_pts = gdb + u"\\tmp_nn_pts_%d" % ci
+        tmp_tbl = gdb + u"\\tmp_nn_tbl_%d" % ci
+        for tmp in (tmp_pts, tmp_tbl):
+            if arcpy.Exists(tmp):
+                arcpy.Delete_management(tmp)
+        arcpy.CreateFeatureclass_management(gdb, os.path.basename(tmp_pts), "POINT",
+                                            spatial_reference=arcpy.Describe(target_fc).spatialReference)
+        arcpy.AddField_management(tmp_pts, "SRC_OID", "LONG")
+        with arcpy.da.InsertCursor(tmp_pts, ["SHAPE@", "SRC_OID"]) as icur:
+            for src_oid, g in items:
+                pt = g.labelPoint if g is not None else None
+                if pt is not None:
+                    icur.insertRow([arcpy.PointGeometry(pt), src_oid])
+        fid_to_src = {}
+        fid_to_xy = {}
+        for f, src, xy in arcpy.da.SearchCursor(tmp_pts, ["OID@", "SRC_OID", "SHAPE@XY"]):
+            fid_to_src[f] = src
+            fid_to_xy[f] = xy
+
+        # 2) 用 PointDistance 算两两距离（输入输出同为该点要素类）
+        arcpy.PointDistance_analysis(tmp_pts, tmp_pts, tmp_tbl)
+        # 邻接表：in_fid -> [(dist, near_fid), ...]，过滤掉自身(距离0)
+        nbr = defaultdict(list)
+        with arcpy.da.SearchCursor(tmp_tbl, ["INPUT_FID", "NEAR_FID", "DISTANCE"]) as cur:
+            for in_fid, near_fid, dist in cur:
+                if in_fid == near_fid:
+                    continue
+                if dist is not None and dist > 0:
+                    nbr[in_fid].append((dist, near_fid))
+        for k in nbr:
+            nbr[k].sort()
+
+        # 3) 起点：西北角（Y 最大，并列取 X 最小）
+        start_fid = max(fid_to_xy.keys(), key=lambda f: (fid_to_xy[f][1], -fid_to_xy[f][0]))
+
+        # 4) 贪心最近邻链
+        visited = set()
+        cur_fid = start_fid
+        while cur_fid is not None and len(visited) < n:
+            visited.add(cur_fid)
+            ordered_oids.append(fid_to_src[cur_fid])
+            nxt = None
+            for dist, near_fid in nbr.get(cur_fid, []):
+                if near_fid not in visited:
+                    nxt = near_fid
+                    break
+            cur_fid = nxt
+
+        # 兜底：链中断时把剩余按 X、Y 顺序补上
+        if len(visited) < n:
+            remaining = [(it[1].labelPoint.X, -it[1].labelPoint.Y, it[0])
+                         for it in items if it[0] not in set(ordered_oids)]
+            remaining.sort()
+            ordered_oids.extend(r[2] for r in remaining)
+
+        for tmp in (tmp_pts, tmp_tbl):
+            if arcpy.Exists(tmp):
+                arcpy.Delete_management(tmp)
+
+    seq_map = {oid: str(i + 1) for i, oid in enumerate(ordered_oids)}
     with arcpy.da.UpdateCursor(target_fc, ["OID@", "SYLDDKXH"]) as cursor:
         cnt = 0
         for row in cursor:
             row[1] = seq_map[row[0]]
             cursor.updateRow(row)
             cnt += 1
-        print("  编码 {} 条".format(cnt))
+        print("  编码 {} 条 (县数 {})".format(cnt, len(groups)))
 
     # ---- 步骤4-9, 11-12, 14-16, 18-20: 批量简单填充 ----
     print("4-20: 批量填充...")
@@ -503,7 +586,7 @@ def save_changelog():
     steps = [
         ("LIN_BAN",     u"空值->'0000'"),
         ("XBMJ",        u"按GIS平面几何重新计算（公顷），删除为0的行"),
-        ("SYLDDKXH",    u"删除XBMJ为0的行后，按XIAN排序从1开始编码"),
+        ("SYLDDKXH",    u"按县投影带投影，PointDistance算两两距离，西北角起贪心最近邻链，全县连续从1编码"),
         ("BH_DJ",       u"空值->4"),
         ("SEN_LIN_LB",  u"空值->022"),
         ("QI_YUAN",     u"DI_LEI=030405时留空，其余空值->20"),
@@ -519,7 +602,7 @@ def save_changelog():
         ("WFTBMJ",      u"空值->0"),
         ("JJLZS",       u"全部行 = MEI_GQ_ZS x XBMJ"),
         ("DCRY",        u"全部行->宋庆安、钟安豪"),
-        ("DCRQ",        u"全部行->20260512"),
+        ("DCRQ",        u"全部行->20260612"),
         ("CS_GHQ",      u"全部行->0"),
     ]
     for i, (f, d) in enumerate(steps, 1):

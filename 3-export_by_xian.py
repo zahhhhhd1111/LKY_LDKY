@@ -43,6 +43,15 @@ def _project_fc_if_needed(fc, zone, tmp_name):
     return tmp_fc
 
 
+def _rmtree_onerror(func, path, exc_info):
+    # 清掉只读属性后再删一次；仍失败则抛出，由调用方捕获
+    try:
+        os.chmod(path, 0o777)
+        func(path)
+    except Exception:
+        raise
+
+
 def export_by_xian():
     arcpy.env.overwriteOutput = True
 
@@ -69,8 +78,15 @@ def export_by_xian():
             continue
         out_dir = os.path.join(output_base, xian_name)
         if os.path.exists(out_dir):
-            shutil.rmtree(out_dir)
-        shutil.copytree(cur_template_dir, out_dir)
+            try:
+                shutil.rmtree(out_dir, onerror=_rmtree_onerror)
+            except Exception as e:
+                print u"  错误：无法清理旧目录 %s" % out_dir
+                print u"  原因：%s" % e
+                print u"  可能是结果目录里的 xlsx 被 Excel 占用（~$ 锁文件），请关闭 Excel 后重试。"
+                continue
+        shutil.copytree(cur_template_dir, out_dir,
+                        ignore=shutil.ignore_patterns(u"*.sr.lock", u"~$*"))
         print u"  模版已复制（含子目录及数据）"
 
         fmap = arcpy.FieldMappings()
