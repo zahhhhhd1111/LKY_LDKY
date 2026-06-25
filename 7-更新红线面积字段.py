@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # 在 ArcMap Python 窗口运行：
-# execfile(r'C:\4code\3lot\7-更新红线面积字段.py')
+# execfile(r'C:\3Work\钟-工作交接\LKY_征占用林地可研\7-更新红线面积字段.py')
 #
 # 作用：用 3/4 号脚本已导出的分县 ZYY.shp 与 XMHX.shp 的面积字段值作为标准，
 #       回写到源要素类「多县合并红线_擦除历史」的两个面积字段：
@@ -11,7 +11,10 @@
 import os, sys
 import arcpy
 
-SCRIPT_DIR = r"C:\4code\3lot"
+try:
+    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+except NameError:
+    SCRIPT_DIR = r"C:\3Work\钟-工作交接\LKY_征占用林地可研"
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 from project_config import (

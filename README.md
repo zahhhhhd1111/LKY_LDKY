@@ -6,11 +6,11 @@
 
 - **ArcMap（自带 Python 2.7）**：跑 1~4、7、8 号脚本。
 - **Python 3**（装 `pandas`、`numpy`、`openpyxl`）：跑 5、6 号脚本。
-- 代码放 `C:\4code\3lot`；换目录就改 `project_config.py` 里的路径。
+- 代码放 `C:\3Work\钟-工作交接\LKY_征占用林地可研`；换目录就改 `project_config.py` 里的路径（`PROJECT_DIR` 已改为按脚本所在目录自动解析，通常无需改；`SCRIPT_DIR` 回退值在 1/2/3/4/7/run_naxian 各脚本顶部）。
 
 ## 准备源数据（在 ArcGIS 里手工做）
 
-放进 `C:\4code\3lot\输出结果.gdb`：
+放进 `C:\3Work\钟-工作交接\LKY_征占用林地可研\输出结果.gdb`：
 
 | 图层名 | 内容 |
 |---|---|
@@ -24,24 +24,24 @@
 **ArcMap Python 窗口**，依次执行：
 
 ```python
-exec(open(r"C:\4code\3lot\1-standardZYYshp.py").read())
-exec(open(r"C:\4code\3lot\2-standardZYYshpedit.py").read())
-execfile(r"C:\4code\3lot\3-export_by_xian.py")
-execfile(r"C:\4code\3lot\4-export_xmhx_by_xian.py")
+exec(open(r"C:\3Work\钟-工作交接\LKY_征占用林地可研\1-standardZYYshp.py").read())
+exec(open(r"C:\3Work\钟-工作交接\LKY_征占用林地可研\2-standardZYYshpedit.py").read())
+execfile(r"C:\3Work\钟-工作交接\LKY_征占用林地可研\3-export_by_xian.py")
+execfile(r"C:\3Work\钟-工作交接\LKY_征占用林地可研\4-export_xmhx_by_xian.py")
 ```
 
 7、8 号脚本视情况再跑（见下表"何时跑"）：
 
 ```python
-execfile(r"C:\4code\3lot\7-更新红线面积字段.py")
-execfile(r"C:\4code\3lot\8-剔除调减地块统计.py")
+execfile(r"C:\3Work\钟-工作交接\LKY_征占用林地可研\7-更新红线面积字段.py")
+execfile(r"C:\3Work\钟-工作交接\LKY_征占用林地可研\8-剔除调减地块统计.py")
 ```
 
 **命令行（Python 3）**：
 
 ```powershell
-python C:\4code\3lot\5-populate_template.py
-python C:\4code\3lot\6-写报告.py
+python C:\3Work\钟-工作交接\LKY_征占用林地可研\5-populate_template.py
+python C:\3Work\钟-工作交接\LKY_征占用林地可研\6-写报告.py
 ```
 
 | 脚本 | 作用 | 何时跑 |
@@ -70,6 +70,6 @@ python C:\4code\3lot\6-写报告.py
 - `输出结果.gdb`（源数据）
 - 三个模板目录 `模版-1009征占用林地数据模板CGCG2000_108/111/114`
 - 各项目 ZYY、项目红线源要素类
-- 导出结果目录 `C:\Users\zhong\Downloads\work file\五个垸和防护堤\结果\按县导出结果`
+- 导出结果目录 `导出结果\`（已并入交接目录，即 `project_config.py` 的 `OUTPUT_BASE`）
 
 GitHub 只存代码和轻量标准文件。

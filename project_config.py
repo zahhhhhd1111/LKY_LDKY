@@ -2,13 +2,20 @@
 """Shared project paths and county-level projection settings."""
 
 import os
+import sys
 
 try:
     text_type = unicode
 except NameError:
     text_type = str
 
-PROJECT_DIR = u"C:/4code/3lot"
+try:
+    _PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+    if not isinstance(_PROJECT_DIR, text_type):
+        _PROJECT_DIR = _PROJECT_DIR.decode(sys.getfilesystemencoding())
+    PROJECT_DIR = _PROJECT_DIR.replace(u"\\", u"/")
+except Exception:
+    PROJECT_DIR = u"C:/3Work/钟-工作交接/LKY_征占用林地可研"
 GDB = PROJECT_DIR + u"/输出结果.gdb"
 
 # Update these feature class names when the source data is replaced.
@@ -21,7 +28,7 @@ COUNTY_BOUNDARY_FC_NAME = u"重点垸三调县界_M"
 TEMPLATE_DIR_108 = PROJECT_DIR + u"/模版-1009征占用林地数据模板CGCG2000_108"
 TEMPLATE_DIR_111 = PROJECT_DIR + u"/模版-1009征占用林地数据模板CGCG2000_111"
 TEMPLATE_DIR_114 = PROJECT_DIR + u"/模版-1009征占用林地数据模板CGCG2000_114"
-OUTPUT_BASE = u"C:/Users/zhong/Downloads/work file/五个垸和防护堤/结果/按县导出结果"
+OUTPUT_BASE = PROJECT_DIR + u"/导出结果"
 
 STANDARD_FILE = PROJECT_DIR + u"/ZYY字段属性标准设置.MD"
 

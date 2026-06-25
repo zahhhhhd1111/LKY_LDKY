@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 #在gis python窗口运行：
-#execfile(r'C:\4code\3lot\4-export_xmhx_by_xian.py')
+#execfile(r'C:\3Work\钟-工作交接\LKY_征占用林地可研\4-export_xmhx_by_xian.py')
 
 import os, shutil, sys
 import arcpy
 
-SCRIPT_DIR = r"C:\4code\3lot"
+try:
+    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+except NameError:
+    SCRIPT_DIR = r"C:\3Work\钟-工作交接\LKY_征占用林地可研"
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 from project_config import (

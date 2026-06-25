@@ -7,14 +7,17 @@ from __future__ import print_function
 
 使用方法：
   在ArcGIS Python窗口运行：
-    exec(open(r'C:\4code\3lot\1-standardZYYshp.py').read())
+    exec(open(r'C:\3Work\钟-工作交接\LKY_征占用林地可研\1-standardZYYshp.py').read())
 """
 
 import sys
 import os
 import traceback
 
-SCRIPT_DIR = r"C:\4code\3lot"
+try:
+    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+except NameError:
+    SCRIPT_DIR = r"C:\3Work\钟-工作交接\LKY_征占用林地可研"
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 from project_config import (

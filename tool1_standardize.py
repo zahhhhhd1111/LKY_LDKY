@@ -2,7 +2,7 @@
 """
 工具1：标准化ZYY字段（运行 1-standardZYYshp.py）
 ArcMap 工具属性 Parameter 标签页按顺序配：
-  参数1 GDB路径           Workspace or String   （如 C:\4code\3lot\输出结果.gdb）
+  参数1 GDB路径           Workspace or String   （如 C:\3Work\钟-工作交接\LKY_征占用林地可研\输出结果.gdb）
   参数2 ZYY源要素类名     String                （如 多县ZYY空间连接保护区）
   参数3 标准字段版输出名  String                （如 多县ZYY_标准字段版）
   参数4 默认投影带         String  默认值 111     （108/111/114）
